@@ -13,3 +13,7 @@ click
 nbt
 frozendict
 webcolors
+mcworldlib
+pandas
+matplotlib
+windows-curses
