@@ -37,28 +37,28 @@ def block_to_id_index(x: int, y: int, z: int) -> Tuple:
     index = block_index(x % CHUNK_SIZE, y % CHUNK_SIZE, z % CHUNK_SIZE)
     return region, chunk, ylevel, index
 
-# Define the GoldBlock class
+# Define a GoldBlock
 class GoldBlock(Block):
     def __init__(self):
         super().__init__("gold_block")
 
-# Define the path to your Minecraft world
+# Path to Minecraft world
 world_path = r'C:\\Users\\zombi\\Documents\\Capstone Project\\minecraft_worlds_tests\\Pack.PNG (1.16)\\'
 
-# Load the Minecraft world using the Editor class
+# Load the world using the Editor class
 try:
     editor = Editor(world_path)
     print("World loaded successfully.")
 except Exception as e:
     print(f"Error loading world: {e}")
 
-# Define the block type and coordinates where it should start and end
+# Define the gold_block and coordinates where it should start and end
 # Create an instance of GoldBlock
 gold_block = GoldBlock()
 start_coords = (10, 64, 10)
 end_coords = (20, 70, 20)
 
-# Fill the blocks within the specified range, preserving other blocks
+# Set the gold blocks within the specified coords, while preserving the other blocks
 for x in range(start_coords[0], end_coords[0] + 1):
     for y in range(start_coords[1], end_coords[1] + 1):
         for z in range(start_coords[2], end_coords[2] + 1):
@@ -70,7 +70,7 @@ for x in range(start_coords[0], end_coords[0] + 1):
                 print(f"Preserving block at ({x}, {y}, {z}): {original_block}")
                 editor.set_block(original_block, x, y, z)
 
-# Save the world with error handling by calling the done method
+# Save the world with error handling by calling the done method from the editor class
 try:
     print("Saving the world")
     editor.done()

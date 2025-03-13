@@ -9,12 +9,10 @@ import math
 from pathlib import Path
 from typing import Tuple
 
-# Define constants and utility functions from tools module
+# Define Region size and chunk size
 REGION_SIZE = 512
 CHUNK_SIZE = 16
 CHUNKS_REGION = 32
-MIN_SECTION = -4
-MAX_SECTION = 19
 
 def block_to_id_index(x: int, y: int, z: int) -> Tuple:
     """Returns the ID of the section and the index of the block location for the section.
@@ -37,43 +35,42 @@ def block_to_id_index(x: int, y: int, z: int) -> Tuple:
     index = block_index(x % CHUNK_SIZE, y % CHUNK_SIZE, z % CHUNK_SIZE)
     return region, chunk, ylevel, index
 
-# Define the GoldBlock class
-class GoldBlock(Block):
-    def __init__(self):
-        super().__init__("gold_block")
+# Load the source world and destination world
+source_world_path = r'C:\\Users\\zombi\\Documents\\Capstone Project\\minecraft_worlds_tests\\Tutorial\\'
+destination_world_path = r'C:\\Users\\zombi\\Documents\\Capstone Project\\minecraft_worlds_tests\\TU recreation\\'
 
-# Define the path to your Minecraft world
-world_path = r'C:\\Users\\zombi\\Documents\\Capstone Project\\minecraft_worlds_tests\\Pack.PNG (1.16)\\'
-
-# Load the Minecraft world using the Editor class
 try:
-    editor = Editor(world_path)
-    print("World loaded successfully.")
+    source_editor = Editor(source_world_path)
+    print("Source world loaded successfully.")
+    destination_editor = Editor(destination_world_path)
+    print("Destination world loaded successfully.")
 except Exception as e:
     print(f"Error loading world: {e}")
 
-# Define the block type and coordinates where it should start and end
-# Create an instance of GoldBlock
-gold_block = GoldBlock()
-start_coords = (10, 64, 10)
-end_coords = (20, 70, 20)
+# Defines the starting chunk coordinates in the source world which will be copied
+source_start_coords = (1 * CHUNK_SIZE, 0, 0 * CHUNK_SIZE)  
+# Sets the size of one chunk
+chunk_size = [CHUNK_SIZE, 256, CHUNK_SIZE]  
 
-# Fill the blocks within the specified range, preserving other blocks
-for x in range(start_coords[0], end_coords[0] + 1):
-    for y in range(start_coords[1], end_coords[1] + 1):
-        for z in range(start_coords[2], end_coords[2] + 1):
-            if start_coords[0] <= x <= end_coords[0] and start_coords[1] <= y <= end_coords[1] and start_coords[2] <= z <= end_coords[2]:
-                print(f"Setting block at ({x}, {y}, {z}) to {gold_block}")
-                editor.set_block(gold_block, x, y, z)
-            else:
-                original_block = editor.get_block(x, y, z)
-                print(f"Preserving block at ({x}, {y}, {z}): {original_block}")
-                editor.set_block(original_block, x, y, z)
+# Defines the starting chunk coordinates in the destination world
+destination_start_coords = (5 * CHUNK_SIZE, 0, 0 * CHUNK_SIZE)  
 
-# Save the world with error handling by calling the done method
+# Define the range of chunks to be copied based on the x and z chunks 
+# (Note: y chunks do not exist if you were thinking about asking that)
+chunks_x = 10  
+chunks_z = 10  
+
+# Copy the chunks from the source world to the destination world
+for dx in range(chunks_x):
+    for dz in range(chunks_z):
+        source_coords = (source_start_coords[0] + dx * CHUNK_SIZE, source_start_coords[1], source_start_coords[2] + dz * CHUNK_SIZE)
+        destination_coords = (destination_start_coords[0] + dx * CHUNK_SIZE, destination_start_coords[1], destination_start_coords[2] + dz * CHUNK_SIZE)
+        destination_editor.copy_blocks(source_coords, destination_coords, chunk_size, world_source=source_world_path)
+
+# Save the destination world
 try:
-    print("Saving the world")
-    editor.done()
-    print("World saved successfully.")
+    print("Saving the destination world")
+    destination_editor.done()
+    print("Destination world saved successfully.")
 except Exception as e:
-    print(f"Error saving world: {e}")
+    print(f"Error saving destination world: {e}")
