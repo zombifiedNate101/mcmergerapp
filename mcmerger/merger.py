@@ -27,7 +27,7 @@ def block_to_id_index(x: int, y: int, z: int) -> Tuple:
     def block_to_ylevel(y: int) -> int:
         return y // CHUNK_SIZE
     def block_index(xs:int, ys:int, zs:int) -> int:
-        return ys * 256 + zs * 16 + xs
+        return ys * 320 + zs * 16 + xs
 
     region = block_to_region(x, z)
     chunk = block_to_chunk(x % REGION_SIZE, z % REGION_SIZE)
@@ -50,7 +50,7 @@ except Exception as e:
 # Defines the starting chunk coordinates in the source world which will be copied
 source_start_coords = (1 * CHUNK_SIZE, 0, 0 * CHUNK_SIZE)  
 # Sets the size of one chunk
-chunk_size = [CHUNK_SIZE, 256, CHUNK_SIZE]  
+chunk_size = [CHUNK_SIZE, 320, CHUNK_SIZE]  
 
 # Defines the starting chunk coordinates in the destination world
 destination_start_coords = (5 * CHUNK_SIZE, 0, 0 * CHUNK_SIZE)  
