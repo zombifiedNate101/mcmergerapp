@@ -1,4 +1,3 @@
-from tkinter import Widget
 from kivy.app import App
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.button import Button
@@ -392,7 +391,8 @@ class MainWindow(FloatLayout):
         self.input_layout = BoxLayout(orientation='vertical', spacing=20, size_hint=(0.4, None), height=700)
         self.input_layout.pos_hint = {"x": 0.05, "y": 0.05}
 
-        self.right_layout = BoxLayout(orientation='vertical', spacing=26, size_hint=(0.3, None), height=700)
+        # Right-Side Layout for Source
+        self.right_layout = BoxLayout(orientation='vertical', spacing=36, size_hint=(0.3, None), height=700)
         self.right_layout.pos_hint = {"x": 0.65, "top": 0.95}  
 
         title_label = Label(
@@ -565,15 +565,15 @@ class MainWindow(FloatLayout):
                 dz = end_chunk_z - start_chunk_z
 
                 # Debug converted coordinates
-                print(f"Start Chunk X: {start_chunk_x}, Start Chunk Z: {start_chunk_z}")
-                print(f"End Chunk X: {end_chunk_x}, End Chunk Z: {end_chunk_z}")
-                print(f"DX: {dx}, DZ: {dz}")
+                #print(f"Start Chunk X: {start_chunk_x}, Start Chunk Z: {start_chunk_z}")
+                #print(f"End Chunk X: {end_chunk_x}, End Chunk Z: {end_chunk_z}")
+                #print(f"DX: {dx}, DZ: {dz}")
 
                 # Use tools.py method to get chunk area
                 regions, _, _ = tools.get_chunk_area(start_chunk_x * 16, start_chunk_z * 16, dx * 16, dz * 16)
 
                 # Debug regions and chunks
-                print(f"Detected Regions: {regions}")
+                #print(f"Detected Regions: {regions}")
 
                 # Render chunks on the source map viewer
                 chunk_data = []
@@ -602,18 +602,25 @@ class MainWindow(FloatLayout):
                 start_x = int(self.destination_start_chunk_x_input.text or 0)
                 start_z = int(self.destination_start_chunk_z_input.text or 0)
 
-                # Automatically calculate ending coordinates for a 50x50 area
-                end_x = start_x + 50
-                end_z = start_z + 50
+                # Convert block coordinates to chunk coordinates
+                start_chunk_x = start_x // 16  # Convert blocks to chunks (16x16 blocks per chunk)
+                start_chunk_z = start_z // 16
+
+                # Calculate ending chunk coordinates for a 50x50 chunk area
+                end_chunk_x = start_chunk_x + 50
+                end_chunk_z = start_chunk_z + 50
 
                 # Calculate area dimensions
-                dx = end_x - start_x
-                dz = end_z - start_z
+                dx = end_chunk_x - start_chunk_x
+                dz = end_chunk_z - start_chunk_z
 
                 # Use tools.py method to get chunk area
-                regions, _, _ = tools.get_chunk_area(start_x, start_z, dx, dz)
+                regions, _, _ = tools.get_chunk_area(start_chunk_x * 16, start_chunk_z * 16, dx * 16, dz * 16)
 
-                # Render chunks on the destination map viewer
+                # Debug regions and chunks
+                #print(f"Detected Regions: {regions}")
+
+                # Render chunks on the source map viewer
                 chunk_data = []
                 for region, chunks in regions.items():
                     for chunk_x, chunk_z in chunks:
