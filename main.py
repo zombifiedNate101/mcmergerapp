@@ -457,7 +457,7 @@ class MainWindow(FloatLayout):
 
     def run_merger(self, instance):
         try:
-                        # Construct paths to the source and destination worlds
+            # Construct paths to the source and destination worlds
             source_world_path = os.path.join(worlds_directory, self.source_path_input.text)
             destination_world_path = os.path.join(worlds_directory, self.destination_path_input.text)
             
@@ -472,17 +472,23 @@ class MainWindow(FloatLayout):
             if not os.path.exists(destination_region_folder):
                 self.result_label.text = f"Error: Destination region folder not found at {destination_region_folder}"
                 return
-        
+
             chunk_size = [16, 320, 16]  # Default chunk dimensions
 
-            # Parse starting and ending chunk coordinates
-            start_chunk_coords = (
+            # Parse source starting and ending chunk coordinates
+            source_start_chunk_coords = (
                 int(self.source_start_chunk_x_input.text or 0),
                 int(self.source_start_chunk_z_input.text or 0)
             )
-            end_chunk_coords = (
+            source_end_chunk_coords = (
                 int(self.source_end_chunk_x_input.text or 0),
                 int(self.source_end_chunk_z_input.text or 0)
+            )
+
+            # Parse destination starting chunk coordinates
+            destination_start_chunk_coords = (
+                int(self.destination_start_chunk_x_input.text or 0),
+                int(self.destination_start_chunk_z_input.text or 0)
             )
 
             # Run the merger
@@ -490,13 +496,16 @@ class MainWindow(FloatLayout):
                 source_world_path,
                 destination_world_path,
                 chunk_size,
-                start_chunk_coords,
-                end_chunk_coords
+                source_start_chunk_coords,
+                source_end_chunk_coords,
+                destination_start_chunk_coords  # Pass destination start coordinates
             )
 
             self.result_label.text = result
         except ValueError:
             self.result_label.text = "Please enter valid numeric values for chunk coordinates."
+        except Exception as e:
+            self.result_label.text = f"Error: {e}"
 
 
 
