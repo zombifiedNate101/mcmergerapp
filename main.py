@@ -498,48 +498,70 @@ class MainWindow(FloatLayout):
 
 
     def show_fill_blocks_inputs(self, instance):
+        """
+        Displays the inputs for the Fill Blocks functionality, including the map viewer.
+        """
         self.clear_content()
 
+        # Dynamically populate the list of worlds
         def get_world_folders():
-            return [
-                folder
-                for folder in os.listdir(worlds_directory)
-                if os.path.isdir(os.path.join(worlds_directory, folder))
-            ]
+            return [f.name for f in Path(worlds_directory).iterdir() if f.is_dir()]
 
-        worlds = get_world_folders()  # Fetch world folders dynamically
+        worlds = get_world_folders()  # Get the latest list of world folders dynamically
 
+        # Layout for inputs on the left side
         self.input_layout = BoxLayout(orientation='vertical', spacing=20, size_hint=(0.4, None), height=700)
-        self.input_layout.pos_hint = {"x": 0.05, "y": 0.05}
+        self.input_layout.pos_hint = {"x": 0.05, "y": 0.05}  # Positioned lower to avoid overlap
 
-        # Right-Side Layout for Source
-        self.right_layout = BoxLayout(orientation='vertical', spacing=36, size_hint=(0.3, None), height=700)
-        self.right_layout.pos_hint = {"x": 0.65, "top": 0.95}  
+        # Right-Side Layout for Source World
+        self.right_layout = BoxLayout(orientation='vertical', spacing=36, size_hint=(0.4, None), height=800)
+        self.right_layout.pos_hint = {"x": 0.6, "top": 0.95}  # Positioned on the right side
 
+        # Title and Description above selections
         title_label = Label(
             text="World Selection",
             size_hint=(1, None),
             height=50,
-            font_size=32,
+            font_size=36,
             color=(1, 1, 1, 1)
         )
         description_label = Label(
             text="Select the source world for block placement.",
             size_hint=(1, None),
-            height=40,
-            font_size=24,
+            height=45,
+            font_size=32,
             color=(0.7, 0.7, 0.7, 1)
         )
         self.right_layout.add_widget(title_label)
         self.right_layout.add_widget(description_label)
 
-        # Spinner for selecting the world folder
+        # Source world selection spinner
         source_container, self.source_path_input = self.create_labeled_spinner(
             "Source World Path:",
             worlds,
             "Select the world where blocks will be placed."
         )
+        self.source_path_input.bind(text=self.update_source_map_viewer)  # Bind to update source map viewer
         self.right_layout.add_widget(source_container)
+
+        # Source Layout
+        source_layout = BoxLayout(orientation='vertical', spacing=10, size_hint=(1, None), height=300)
+
+        # Add the map viewer
+        self.source_map_viewer = ChunkMapViewer(size_hint=(None, None), size=(800, 200))
+        self.source_map_viewer.pos_hint = {"center_x": 0.5}  # Center horizontally
+        source_layout.add_widget(self.source_map_viewer)
+
+        # Add the source layout to the right layout
+        self.right_layout.add_widget(source_layout)
+
+        # Initialize dummy attributes for chunk inputs to avoid errors
+        self.source_start_chunk_x_input = TextInput(text="0")  # Default value
+        self.source_start_chunk_z_input = TextInput(text="0")  # Default value
+        self.source_end_chunk_x_input = TextInput(text="4")  # Default value
+        self.source_end_chunk_z_input = TextInput(text="4")  # Default value
+
+        # Add right layout to FloatLayout
         self.add_widget(self.right_layout)
 
         # Input fields for block type and coordinates
@@ -564,13 +586,16 @@ class MainWindow(FloatLayout):
         )
         self.input_layout.add_widget(end_coords_container)
 
+        # Add the Fill Blocks button
         fill_button = Button(text="Fill Blocks", size_hint=(1, None), height=50, font_size=32)
         fill_button.bind(on_press=self.fill_blocks)
         self.input_layout.add_widget(fill_button)
 
+        # Add result label
         self.result_label = Label(text="", size_hint=(1, None), height=50, font_size=32)
         self.input_layout.add_widget(self.result_label)
 
+        # Add input layout to FloatLayout
         self.add_widget(self.input_layout)
 
 
