@@ -86,12 +86,12 @@ class ChunkMapViewer(FloatLayout):
         try:
             # Validate the existence of the region folder
             region_folder = get_region_folder(worlds_directory, world_name)
-            print(f"Region folder found: {region_folder}")
+            #print(f"Region folder found: {region_folder}")
 
             with self.canvas:
                 for chunk_x, chunk_z in chunk_coords:
                     try:
-                        print(f"Processing chunk ({chunk_x}, {chunk_z})")
+                        #print(f"Processing chunk ({chunk_x}, {chunk_z})")
                         # Convert chunk coordinates to region coordinates
                         region_coords = tools.chunk_to_region(chunk_x, chunk_z)
                         region_path = Path(region_folder) / f"r.{region_coords[0]}.{region_coords[1]}.mca"
@@ -131,7 +131,7 @@ class ChunkMapViewer(FloatLayout):
                                         continue
 
                                     # Debug: Print block name
-                                    print(f"Block found at ({world_x}, {y}, {world_z}): {block_name}")
+                                    #print(f"Block found at ({world_x}, {y}, {world_z}): {block_name}")
 
                                     # Look up the block's color
                                     color = editor.colormap.get(block_name, None)
@@ -139,12 +139,14 @@ class ChunkMapViewer(FloatLayout):
                                         print(f"Warning: Color not found for block '{block_name}', using default color.")
                                         color = [0, 0, 1, 1]  # Default to blue
 
+                                    # Adjust drawing coordinates
+                                    rect_x = self.pos[0] + (world_x - chunk_coords[0][0] * 16) * scale
+                                    rect_z = self.pos[1] + (world_z - chunk_coords[0][1] * 16) * scale
+
                                     # Draw the block's color
                                     Color(*[c / 255 for c in color])
-                                    rect_x = self.pos[0] + world_x * scale
-                                    rect_z = self.pos[1] + world_z * scale
                                     Rectangle(pos=(rect_x, rect_z), size=(scale, scale))
-                                    print(f"Drew block at ({world_x}, {y}, {world_z}) with color {color}")
+                                    #print(f"Drew block at ({world_x}, {y}, {world_z}) with color {color}")
                                     found_block = True
                                     break  # Stop descending once a non-air block is found
 
@@ -369,11 +371,20 @@ class MainWindow(FloatLayout):
             "Select the source world."
         )
         self.source_path_input.bind(text=self.update_source_map_viewer)  # Bind to update source map viewer
-        self.right_layout.add_widget(source_container)
 
-        # Source map viewer positioned directly below the spinner
-        self.source_map_viewer = ChunkMapViewer(size_hint=(1, None), height=200)  # Define fixed height
-        self.right_layout.add_widget(self.source_map_viewer)
+        # Source Layout
+        source_layout = BoxLayout(orientation='vertical', spacing=10, size_hint=(1, None), height=300)
+
+        # Add the spinner first
+        source_layout.add_widget(source_container)  # Add the spinner
+
+        # Add the map viewer after the spinner
+        self.source_map_viewer = ChunkMapViewer(size_hint=(None, None), size=(800, 200))
+        self.source_map_viewer.pos_hint = {"center_x": 0.5}  # Center horizontally
+        source_layout.add_widget(self.source_map_viewer)
+
+        # Add the source layout to the right layout
+        self.right_layout.add_widget(source_layout)
 
         # Destination world selection spinner
         destination_container, self.destination_path_input = self.create_labeled_spinner(
@@ -382,11 +393,20 @@ class MainWindow(FloatLayout):
             "Select the destination world."
         )
         self.destination_path_input.bind(text=self.update_destination_map_viewer)  # Bind to update destination map viewer
-        self.right_layout.add_widget(destination_container)
 
-        # Destination map viewer positioned directly below the spinner
-        self.destination_map_viewer = ChunkMapViewer(size_hint=(1, None), height=200)  # Define fixed height
-        self.right_layout.add_widget(self.destination_map_viewer)
+        # Destination Layout
+        destination_layout = BoxLayout(orientation='vertical', spacing=10, size_hint=(1, None), height=300)
+
+        # Add the spinner first
+        destination_layout.add_widget(destination_container)  # Add the spinner
+
+        # Add the map viewer after the spinner
+        self.destination_map_viewer = ChunkMapViewer(size_hint=(None, None), size=(800, 200))
+        self.destination_map_viewer.pos_hint = {"center_x": 0.5}  # Center horizontally
+        destination_layout.add_widget(self.destination_map_viewer)
+
+        # Add the destination layout to the right layout
+        self.right_layout.add_widget(destination_layout)
 
         # Add right layout to FloatLayout
         self.add_widget(self.right_layout)
@@ -658,6 +678,9 @@ class MainWindow(FloatLayout):
         """
         if selected_world:
             try:
+                # Clear the canvas before drawing
+                self.source_map_viewer.canvas.clear()
+
                 # Construct the path to the source world
                 source_world_path = os.path.join(worlds_directory, selected_world)
                 source_region_folder = os.path.join(source_world_path, "region")
@@ -677,8 +700,16 @@ class MainWindow(FloatLayout):
                 dx = end_chunk_x - start_chunk_x + 1
                 dz = end_chunk_z - start_chunk_z + 1
 
+                # Debug: Print input coordinates
+                #print(f"Source chunk range: ({start_chunk_x}, {start_chunk_z}) to ({end_chunk_x}, {end_chunk_z})")
+
                 # Use tools.py method to get chunk area
                 regions, _, _ = tools.get_chunk_area(start_chunk_x * 16, start_chunk_z * 16, dx * 16, dz * 16)
+
+                # Debug: Print regions and chunks
+                #print(f"Regions found: {len(regions)}")
+                #for region, chunks in regions.items():
+                    #print(f"Region: {region}, Chunks: {chunks}")
 
                 # Prepare chunk coordinates for rendering
                 chunk_coords = []
@@ -686,15 +717,19 @@ class MainWindow(FloatLayout):
                     for chunk_x, chunk_z in chunks:
                         chunk_coords.append((chunk_x, chunk_z))
 
+                # Debug: Print chunk coordinates
+                #print(f"Chunk coordinates: {chunk_coords}")
+
+                # Handle empty results
+                if not chunk_coords:
+                    print("Warning: No chunks found for the specified range.")
+                    return
+
                 # Load the editor for the selected world
                 editor = Editor(source_world_path)
 
                 # Render surface blocks on the source map viewer
                 self.source_map_viewer.draw_surface_blocks(editor, selected_world, chunk_coords, scale=10)
-
-                # Ensure spinners are on top
-                self.remove_widget(self.source_path_input)
-                self.add_widget(self.source_path_input)
 
             except Exception as e:
                 print(f"Error updating source map viewer: {e}")
@@ -705,6 +740,9 @@ class MainWindow(FloatLayout):
         """
         if selected_world:
             try:
+                # Clear the canvas before drawing
+                self.destination_map_viewer.canvas.clear()
+
                 # Construct the path to the destination world
                 destination_world_path = os.path.join(worlds_directory, selected_world)
                 destination_region_folder = os.path.join(destination_world_path, "region")
@@ -724,8 +762,16 @@ class MainWindow(FloatLayout):
                 dx = end_chunk_x - start_chunk_x + 1
                 dz = end_chunk_z - start_chunk_z + 1
 
+                # Debug: Print input coordinates
+                #print(f"Destination chunk range: ({start_chunk_x}, {start_chunk_z}) to ({end_chunk_x}, {end_chunk_z})")
+
                 # Use tools.py method to get chunk area
                 regions, _, _ = tools.get_chunk_area(start_chunk_x * 16, start_chunk_z * 16, dx * 16, dz * 16)
+
+                # Debug: Print regions and chunks
+                #print(f"Regions found: {len(regions)}")
+                #for region, chunks in regions.items():
+                   # print(f"Region: {region}, Chunks: {chunks}")
 
                 # Prepare chunk coordinates for rendering
                 chunk_coords = []
@@ -733,15 +779,19 @@ class MainWindow(FloatLayout):
                     for chunk_x, chunk_z in chunks:
                         chunk_coords.append((chunk_x, chunk_z))
 
+                # Debug: Print chunk coordinates
+                #print(f"Chunk coordinates: {chunk_coords}")
+
+                # Handle empty results
+                if not chunk_coords:
+                    print("Warning: No chunks found for the specified range.")
+                    return
+
                 # Load the editor for the selected world
                 editor = Editor(destination_world_path)
 
                 # Render surface blocks on the destination map viewer
                 self.destination_map_viewer.draw_surface_blocks(editor, selected_world, chunk_coords, scale=10)
-
-                # Ensure spinners are on top
-                self.remove_widget(self.destination_path_input)
-                self.add_widget(self.destination_path_input)
 
             except Exception as e:
                 print(f"Error updating destination map viewer: {e}")
@@ -765,5 +815,5 @@ def chunk_location(self, chunk_x: int, chunk_z: int) -> list:
     b_off = self.header_offset(chunk_x, chunk_z)
     off = int.from_bytes(self.data[b_off : b_off + 3], byteorder="big")
     sectors = self.data[b_off + 3]
-    L.debug(f"Chunk {chunk_x}/{chunk_z} offset: {off}, sectors: {sectors}")
+    #L.debug(f"Chunk {chunk_x}/{chunk_z} offset: {off}, sectors: {sectors}")
     return (off, sectors)
