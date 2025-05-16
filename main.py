@@ -6,9 +6,10 @@ from kivy.uix.textinput import TextInput
 from kivy.uix.scrollview import ScrollView
 from kivy.core.window import Window
 from kivy.uix.floatlayout import FloatLayout
-from kivy.graphics import Color, Rectangle
+from kivy.graphics import Color, Rectangle, InstructionGroup
 from kivy.uix.image import Image
 from kivy.uix.spinner import Spinner
+from kivy.uix.progressbar import ProgressBar
 
 import os
 from pathlib import Path
@@ -24,7 +25,9 @@ from pyblock.constants import MIN_SECTION, MAX_SECTION  # Import constants for s
 Window.size = (1280, 720)
 
 # Define the base directory where all Minecraft worlds are stored
-worlds_directory = os.path.normpath("C:/Users/zombi/Documents/Capstone Project/minecraft_worlds_tests")
+#worlds_directory = os.path.normpath("C:/Users/zombi/Documents/Capstone Project/minecraft_worlds_tests")
+worlds_directory = os.path.normpath("C:/Users/zombi/AppData/Roaming/.minecraft/saves")
+
 
 # Define the get_region_folder function
 def get_region_folder(worlds_directory, world_name):
@@ -93,8 +96,10 @@ class ChunkMapViewer(FloatLayout):
                     try:
                         #print(f"Processing chunk ({chunk_x}, {chunk_z})")
                         # Convert chunk coordinates to region coordinates
-                        region_coords = tools.chunk_to_region(chunk_x, chunk_z)
-                        region_path = Path(region_folder) / f"r.{region_coords[0]}.{region_coords[1]}.mca"
+                        region_x = chunk_x // 32
+                        region_z = chunk_z // 32
+                        region_file = f"r.{region_x}.{region_z}.mca"
+                        region_path = Path(region_folder) / region_file
 
                         # Validate the existence of the region file
                         if not region_path.exists():
@@ -102,7 +107,7 @@ class ChunkMapViewer(FloatLayout):
                             continue
 
                         # Load the region
-                        region = Region(region_folder, region_coords)
+                        region = Region(region_folder, (region_x, region_z))
 
                         # Get the chunk from the region
                         chunk_coord = (chunk_x % 32, chunk_z % 32)
@@ -144,8 +149,9 @@ class ChunkMapViewer(FloatLayout):
                                     rect_z = self.pos[1] + (world_z - chunk_coords[0][1] * 16) * scale
 
                                     # Draw the block's color
-                                    Color(*[c / 255 for c in color])
-                                    Rectangle(pos=(rect_x, rect_z), size=(scale, scale))
+                                    with self.canvas.after:
+                                        Color(*[c / 255 for c in color])
+                                        Rectangle(pos=(rect_x, rect_z), size=(scale, scale))
                                     #print(f"Drew block at ({world_x}, {y}, {world_z}) with color {color}")
                                     found_block = True
                                     break  # Stop descending once a non-air block is found
@@ -174,6 +180,23 @@ class ChunkMapViewer(FloatLayout):
                           size=(x_max - x_min, z_max - z_min))
         except Exception as e:
             print(f"Error visualizing area: {e}")
+
+    def draw_region(self, region_x, region_z, color=(1, 0, 0, 0.3), scale=10):
+        """
+        Draws a highlight over all chunks in the specified region.
+        region_x, region_z: Region coordinates (each region is 32x32 chunks)
+        color: RGBA tuple for the highlight color
+        scale: Size of each chunk square in pixels
+        """
+        self.canvas.clear()
+        with self.canvas:
+            Color(*color)
+            # Each region is 32x32 chunks
+            for chunk_x in range(region_x * 32, (region_x + 1) * 32):
+                for chunk_z in range(region_z * 32, (region_z + 1) * 32):
+                    rect_x = self.pos[0] + (chunk_x - region_x * 32) * scale
+                    rect_z = self.pos[1] + (chunk_z - region_z * 32) * scale
+                    Rectangle(pos=(rect_x, rect_z), size=(scale, scale))
 
 
 class MainWindow(FloatLayout):
@@ -489,6 +512,10 @@ class MainWindow(FloatLayout):
         self.result_label = Label(text="", size_hint=(1, None), height=50, font_size=32)
         self.input_layout.add_widget(self.result_label)
 
+        # Add progress bar
+        self.progress_bar = ProgressBar(max=100, value=0, size_hint=(1, None), height=30)
+        self.input_layout.add_widget(self.progress_bar)
+
         # Add input layout to FloatLayout (on the left side)
         self.add_widget(self.input_layout)
 
@@ -555,7 +582,7 @@ class MainWindow(FloatLayout):
         # Add the source layout to the right layout
         self.right_layout.add_widget(source_layout)
 
-        # Initialize dummy attributes for chunk inputs to avoid errors
+                # Initialize dummy attributes for chunk inputs to avoid errors
         self.source_start_chunk_x_input = TextInput(text="0")  # Default value
         self.source_start_chunk_z_input = TextInput(text="0")  # Default value
         self.source_end_chunk_x_input = TextInput(text="4")  # Default value
@@ -586,6 +613,9 @@ class MainWindow(FloatLayout):
         )
         self.input_layout.add_widget(end_coords_container)
 
+        # Bind inputs for dynamic visualization
+        self.bind_fill_blocks_inputs()
+
         # Add the Fill Blocks button
         fill_button = Button(text="Fill Blocks", size_hint=(1, None), height=50, font_size=32)
         fill_button.bind(on_press=self.fill_blocks)
@@ -599,7 +629,55 @@ class MainWindow(FloatLayout):
         self.add_widget(self.input_layout)
 
 
+    def bind_fill_blocks_inputs(self):
+        """
+        Binds the start and end coordinate inputs to dynamically update the map viewer.
+        """
+        self.start_coords_input.bind(text=self.update_fill_blocks_visualization)
+        self.end_coords_input.bind(text=self.update_fill_blocks_visualization)
 
+    def update_fill_blocks_visualization(self, instance, value):
+        """
+        Updates the map viewer dynamically as the user inputs start and end coordinates.
+        Moves the map viewer to the chunk region containing the given coordinates.
+        """
+        try:
+            start_coords_text = self.start_coords_input.text.strip()
+            end_coords_text = self.end_coords_input.text.strip()
+
+            if not start_coords_text:
+                return
+
+            start_split = start_coords_text.split(',')
+            if len(start_split) != 3:
+                return
+
+            start_coords = tuple(map(int, start_split))
+
+            # If end coords are empty, default to start+1 for x and z
+            if end_coords_text:
+                end_split = end_coords_text.split(',')
+                if len(end_split) != 3:
+                    return
+                end_coords = tuple(map(int, end_split))
+            else:
+                end_coords = (start_coords[0] + 1, start_coords[1], start_coords[2] + 1)
+
+            # --- Move/center the map viewer on the chunk region containing start_coords ---
+            # If your viewer expects region coords, calculate from block coords:
+            region_x = start_coords[0] // 512
+            region_z = start_coords[2] // 512
+
+            self.current_region_x = region_x
+            self.current_region_z = region_z
+
+            self.source_map_viewer.draw_region(region_x, region_z)
+
+            # Visualize the filled area as before
+            self.visualize_filled_area(start_coords, end_coords)
+
+        except ValueError:
+            pass
 
     def run_merger(self, instance):
         try:
@@ -663,16 +741,14 @@ class MainWindow(FloatLayout):
         end_coords_text = self.end_coords_input.text.strip()
 
         try:
-                                    # Construct paths to the source and destination worlds
+            # Construct paths to the source world
             source_world_path = os.path.join(worlds_directory, self.source_path_input.text)
             
             # Validate the existence of region folders
             source_region_folder = os.path.join(source_world_path, "region")
-            
             if not os.path.exists(source_region_folder):
                 self.result_label.text = f"Error: Source region folder not found at {source_region_folder}"
                 return
-            
 
             # Parse coordinates
             start_coords = tuple(map(int, start_coords_text.split(',')))
@@ -692,10 +768,49 @@ class MainWindow(FloatLayout):
 
             # Save the world
             editor.done()
+
+            # Visualize the filled area on the map viewer
+            self.visualize_filled_area(start_coords, end_coords)
+
             self.result_label.text = "Blocks filled successfully!"
 
         except Exception as e:
             self.result_label.text = f"Error: {e}"
+
+    def visualize_filled_area(self, start_coords, end_coords):
+        """
+        Visualizes the filled area on the map viewer.
+        """
+        try:
+            # Validate that start_coords and end_coords have 3 elements (x, y, z)
+            if len(start_coords) != 3 or len(end_coords) != 3:
+                print("Error: Coordinates must have exactly 3 values (x, y, z).")
+                return
+
+            # Remove previous visualization group if it exists
+            if hasattr(self, 'filled_area_group'):
+                self.source_map_viewer.canvas.after.remove(self.filled_area_group)
+
+            # Create a new instruction group for the filled area
+            self.filled_area_group = InstructionGroup()
+
+            # Calculate the chunk coordinates for the filled area
+            chunk_coords = []
+            for x in range(start_coords[0] // 16, end_coords[0] // 16 + 1):
+                for z in range(start_coords[2] // 16, end_coords[2] // 16 + 1):
+                    chunk_coords.append((x, z))
+
+            # Add rectangles to the instruction group
+            self.filled_area_group.add(Color(1, 0, 0, 0.5))  # Red color for filled area
+            for chunk_x, chunk_z in chunk_coords:
+                rect_x = self.source_map_viewer.pos[0] + chunk_x * 10  # Adjust scale as needed
+                rect_z = self.source_map_viewer.pos[1] + chunk_z * 10
+                self.filled_area_group.add(Rectangle(pos=(rect_x, rect_z), size=(10, 10)))  # Adjust size as needed
+
+            # Add the instruction group to the canvas (foreground)
+            self.source_map_viewer.canvas.after.add(self.filled_area_group)
+        except Exception as e:
+            print(f"Error visualizing filled area: {e}")
 
     def update_source_map_viewer(self, spinner, selected_world):
         """
@@ -715,26 +830,20 @@ class MainWindow(FloatLayout):
                     print(f"Error: Source region folder not found at {source_region_folder}")
                     return
 
-                # Retrieve starting and ending chunk coordinates from user input
+                # Retrieve starting chunk coordinates from user input
                 start_chunk_x = int(self.source_start_chunk_x_input.text or 0)
                 start_chunk_z = int(self.source_start_chunk_z_input.text or 0)
-                end_chunk_x = int(self.source_end_chunk_x_input.text or 4)
-                end_chunk_z = int(self.source_end_chunk_z_input.text or 4)
+
+                # Retrieve ending chunk coordinates, defaulting to start+1 if empty
+                end_chunk_x = int(self.source_end_chunk_x_input.text) if self.source_end_chunk_x_input.text else start_chunk_x + 1
+                end_chunk_z = int(self.source_end_chunk_z_input.text) if self.source_end_chunk_z_input.text else start_chunk_z + 1
 
                 # Calculate area dimensions
                 dx = end_chunk_x - start_chunk_x + 1
                 dz = end_chunk_z - start_chunk_z + 1
 
-                # Debug: Print input coordinates
-                #print(f"Source chunk range: ({start_chunk_x}, {start_chunk_z}) to ({end_chunk_x}, {end_chunk_z})")
-
                 # Use tools.py method to get chunk area
                 regions, _, _ = tools.get_chunk_area(start_chunk_x * 16, start_chunk_z * 16, dx * 16, dz * 16)
-
-                # Debug: Print regions and chunks
-                #print(f"Regions found: {len(regions)}")
-                #for region, chunks in regions.items():
-                    #print(f"Region: {region}, Chunks: {chunks}")
 
                 # Prepare chunk coordinates for rendering
                 chunk_coords = []
@@ -742,10 +851,6 @@ class MainWindow(FloatLayout):
                     for chunk_x, chunk_z in chunks:
                         chunk_coords.append((chunk_x, chunk_z))
 
-                # Debug: Print chunk coordinates
-                #print(f"Chunk coordinates: {chunk_coords}")
-
-                # Handle empty results
                 if not chunk_coords:
                     print("Warning: No chunks found for the specified range.")
                     return
@@ -777,26 +882,20 @@ class MainWindow(FloatLayout):
                     print(f"Error: Destination region folder not found at {destination_region_folder}")
                     return
 
-                # Retrieve starting and ending chunk coordinates from user input
+                # Retrieve starting chunk coordinates from user input
                 start_chunk_x = int(self.destination_start_chunk_x_input.text or 0)
                 start_chunk_z = int(self.destination_start_chunk_z_input.text or 0)
-                end_chunk_x = int(self.destination_end_chunk_x_input.text or 4)
-                end_chunk_z = int(self.destination_end_chunk_z_input.text or 4)
+
+                # Retrieve ending chunk coordinates, defaulting to start+1 if empty
+                end_chunk_x = int(self.destination_end_chunk_x_input.text) if self.destination_end_chunk_x_input.text else start_chunk_x + 1
+                end_chunk_z = int(self.destination_end_chunk_z_input.text) if self.destination_end_chunk_z_input.text else start_chunk_z + 1
 
                 # Calculate area dimensions
                 dx = end_chunk_x - start_chunk_x + 1
                 dz = end_chunk_z - start_chunk_z + 1
 
-                # Debug: Print input coordinates
-                #print(f"Destination chunk range: ({start_chunk_x}, {start_chunk_z}) to ({end_chunk_x}, {end_chunk_z})")
-
                 # Use tools.py method to get chunk area
                 regions, _, _ = tools.get_chunk_area(start_chunk_x * 16, start_chunk_z * 16, dx * 16, dz * 16)
-
-                # Debug: Print regions and chunks
-                #print(f"Regions found: {len(regions)}")
-                #for region, chunks in regions.items():
-                   # print(f"Region: {region}, Chunks: {chunks}")
 
                 # Prepare chunk coordinates for rendering
                 chunk_coords = []
@@ -804,10 +903,6 @@ class MainWindow(FloatLayout):
                     for chunk_x, chunk_z in chunks:
                         chunk_coords.append((chunk_x, chunk_z))
 
-                # Debug: Print chunk coordinates
-                #print(f"Chunk coordinates: {chunk_coords}")
-
-                # Handle empty results
                 if not chunk_coords:
                     print("Warning: No chunks found for the specified range.")
                     return
