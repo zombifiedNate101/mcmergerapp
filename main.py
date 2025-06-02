@@ -9,24 +9,39 @@ from kivy.uix.floatlayout import FloatLayout
 from kivy.graphics import Color, Rectangle, InstructionGroup
 from kivy.uix.image import Image
 from kivy.uix.spinner import Spinner
-from kivy.uix.progressbar import ProgressBar
+# from kivy.uix.progressbar import ProgressBar
 
 import os
 from pathlib import Path
-    
+import sys
+
 from mcmerger.merger import merge_worlds  # Import the merger module
-from pyblock.editor import Editor
-from pyblock.block import Block
-from pyblock import tools, chunk  # Import tools and chunk from pyblock
-import pyblock  # Import the pyblock module to use its namespace
-from pyblock.region import Region  # Import the Region class
-from pyblock.constants import MIN_SECTION, MAX_SECTION  # Import constants for section limits
+from mcmerger.pyblock.editor import Editor
+from mcmerger.pyblock.block import Block
+from mcmerger.pyblock import tools, chunk
+from mcmerger.pyblock.region import Region
+from mcmerger.pyblock.tools import MIN_SECTION, MAX_SECTION  # Import constants for section limits
 
 Window.size = (1280, 720)
 
+def get_minecraft_saves_folder():
+    """
+    Returns the path to the Minecraft saves folder for the current user and OS.
+    """
+    home = os.path.expanduser("~")
+    if sys.platform.startswith("win"):
+        # Windows
+        return os.path.join(home, "AppData", "Roaming", ".minecraft", "saves")
+    elif sys.platform.startswith("darwin"):
+        # macOS
+        return os.path.join(home, "Library", "Application Support", "minecraft", "saves")
+    else:
+        # Linux and others
+        return os.path.join(home, ".minecraft", "saves")
+
 # Define the base directory where all Minecraft worlds are stored
 #worlds_directory = os.path.normpath("C:/Users/zombi/Documents/Capstone Project/minecraft_worlds_tests")
-worlds_directory = os.path.normpath("C:/Users/zombi/AppData/Roaming/.minecraft/saves")
+worlds_directory = get_minecraft_saves_folder()
 
 
 # Define the get_region_folder function
@@ -512,9 +527,7 @@ class MainWindow(FloatLayout):
         self.result_label = Label(text="", size_hint=(1, None), height=50, font_size=32)
         self.input_layout.add_widget(self.result_label)
 
-        # Add progress bar
-        self.progress_bar = ProgressBar(max=100, value=0, size_hint=(1, None), height=30)
-        self.input_layout.add_widget(self.progress_bar)
+
 
         # Add input layout to FloatLayout (on the left side)
         self.add_widget(self.input_layout)

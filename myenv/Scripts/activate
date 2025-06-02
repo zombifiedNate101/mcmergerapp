@@ -37,7 +37,7 @@ deactivate () {
 # unset irrelevant variables
 deactivate nondestructive
 
-VIRTUAL_ENV="C:\Users\zombi\Documents\Capstone Project\myenv"
+VIRTUAL_ENV="C:\Users\zombi\OneDrive\Documents\GitHub\mcmergerapp\myenv"
 export VIRTUAL_ENV
 
 _OLD_VIRTUAL_PATH="$PATH"
